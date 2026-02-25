@@ -2,6 +2,8 @@
 
 Thanks for your interest in improving this project.
 
+This repository is focused on the nonprofit CRM application.
+
 ## Development setup
 
 1. Fork and clone the repository.
@@ -12,10 +14,10 @@ Thanks for your interest in improving this project.
 pip install -r requirements.txt
 ```
 
-4. Copy environment template if needed:
+4. Run the CRM locally for manual validation:
 
 ```bash
-copy .env.example .env
+streamlit run nonprofit_crm_app.py
 ```
 
 ## Local quality checks
@@ -23,7 +25,7 @@ copy .env.example .env
 Before opening a pull request, run:
 
 ```bash
-python -m compileall app.py chatbot tests
+python -m compileall nonprofit_crm_app.py nonprofit_crm tests
 python -m pytest -q
 ```
 
@@ -48,7 +50,7 @@ This repository follows a conventional style:
 Example:
 
 ```text
-feat: add OCR fallback for scanned PDFs
+feat: add campaign stage conversion report
 ```
 
 ## Pull request checklist

@@ -9,17 +9,21 @@ https://keepachangelog.com/en/1.1.0/
 
 ### Added
 
-- Governance and repository standards documents (`LICENSE`, `CONTRIBUTING.md`,
-  `CODE_OF_CONDUCT.md`, `SECURITY.md`, `SUPPORT.md`)
-- CI workflow and repository automation templates
+- AI-assisted HIPAA-sensitive data review tab with filterable findings and CSV export
+- Heuristic HIPAA scanner module for SSN, DOB, MRN, insurance, coding, and medical-context signals
+- Smart account/contact search improvements with alias and fuzzy name matching
 
-## [0.1.0] - 2026-02-24
+### Changed
+
+- Updated repository documentation to be fully nonprofit CRM focused
+- Expanded CRM architecture and usage guidance for fundraising and finance workflows
+
+## [1.0.0] - 2026-02-24
 
 ### Added
 
-- Initial Streamlit chatbot MVP for `.docx` uploads
-- In-memory TF-IDF retrieval and context assembly for grounded answers
-- Optional OpenAI integration with retrieval-only fallback mode
-- PDF ingestion and OCR fallback for scanned PDF pages
-- Architecture documentation and Mermaid diagrams
-- Unit test suite for ingestion, retrieval, LLM logic, and app workflows
+- Salesforce Nonprofit Cloud-inspired CRM workspace built with Streamlit
+- Accounts/Contacts, Engagement Plans, Opportunities, Campaigns, and Gift Entry modules
+- Reconciliation flow linking opportunities, ledger entries, and bank transactions
+- SQLite-backed persistence layer with schema initialization and migrations
+- Unit test suite for CRM store behavior and reconciliation correctness

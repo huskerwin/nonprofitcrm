@@ -570,6 +570,59 @@ class CRMStore:
 
         return [row for _, row in scored_candidates]
 
+    def records_for_hipaa_scan(self) -> list[dict[str, Any]]:
+        """Return CRM records prepared for sensitive-data scanning."""
+
+        object_tables = [
+            ("Accounts & Contacts", "donors"),
+            ("Engagement Plans", "engagements"),
+            ("Opportunities", "donations"),
+            ("Campaigns", "campaigns"),
+            ("Gift Entry & Ledger", "ledger_entries"),
+            ("Bank Accounts", "bank_accounts"),
+            ("Bank Transactions", "bank_transactions"),
+        ]
+
+        records: list[dict[str, Any]] = []
+        with self._connect() as connection:
+            for object_name, table_name in object_tables:
+                rows = connection.execute(
+                    f"SELECT * FROM {table_name} ORDER BY id DESC"
+                ).fetchall()
+
+                for row in rows:
+                    row_dict = dict(row)
+                    record_id = row_dict.get("id")
+                    if not isinstance(record_id, int):
+                        continue
+
+                    fields: dict[str, Any] = {}
+                    for key, value in row_dict.items():
+                        if key in {"id", "created_at"}:
+                            continue
+                        if value is None:
+                            continue
+                        if isinstance(value, str):
+                            cleaned = value.strip()
+                            if not cleaned:
+                                continue
+                            fields[key] = cleaned
+                            continue
+                        if isinstance(value, (int, float)):
+                            continue
+                        fields[key] = str(value)
+
+                    records.append(
+                        {
+                            "object_name": object_name,
+                            "table_name": table_name,
+                            "record_id": record_id,
+                            "fields": fields,
+                        }
+                    )
+
+        return records
+
     def add_campaign(
         self,
         name: str,

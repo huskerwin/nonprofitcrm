@@ -7,11 +7,13 @@ from .store import (
     format_currency,
     month_bounds,
 )
+from .hipaa_scan import HipaaSensitivityScanner
 
 __all__ = [
     "CRMStore",
     "cents_from_amount",
     "donor_display_name",
     "format_currency",
+    "HipaaSensitivityScanner",
     "month_bounds",
 ]

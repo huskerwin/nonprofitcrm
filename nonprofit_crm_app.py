@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Iterable
 
@@ -11,6 +11,7 @@ import streamlit as st
 
 from nonprofit_crm import (
     CRMStore,
+    HipaaSensitivityScanner,
     cents_from_amount,
     donor_display_name,
     format_currency,
@@ -52,6 +53,7 @@ CAMPAIGN_STATUSES = ["Planned", "In Progress", "Completed", "On Hold"]
 
 DB_PATH = Path(".data/nonprofit_crm.db")
 STORE = CRMStore(DB_PATH)
+HIPAA_SCANNER = HipaaSensitivityScanner()
 
 
 def _inject_styles() -> None:
@@ -1400,6 +1402,166 @@ def render_reconciliation_tab() -> None:
                     st.error(str(exc))
 
 
+def render_hipaa_review_tab() -> None:
+    st.markdown("### HIPAA Sensitive Data Review")
+    st.markdown(
+        "<p class='section-note'>AI-assisted scan across all CRM objects to flag potential HIPAA-sensitive content for compliance review.</p>",
+        unsafe_allow_html=True,
+    )
+    st.caption(
+        "This scanner is a review aid. Final HIPAA determinations still require policy, legal, and compliance validation."
+    )
+
+    if "hipaa_scan_has_run" not in st.session_state:
+        st.session_state.hipaa_scan_has_run = False
+    if "hipaa_scan_findings" not in st.session_state:
+        st.session_state.hipaa_scan_findings = []
+    if "hipaa_scan_record_count" not in st.session_state:
+        st.session_state.hipaa_scan_record_count = 0
+    if "hipaa_scan_timestamp" not in st.session_state:
+        st.session_state.hipaa_scan_timestamp = ""
+
+    actions = st.columns([1, 1, 3], gap="small")
+    with actions[0]:
+        run_scan = st.button("Run AI Scan", use_container_width=True, key="hipaa-scan-run")
+    with actions[1]:
+        clear_results = st.button("Clear", use_container_width=True, key="hipaa-scan-clear")
+
+    if clear_results:
+        st.session_state.hipaa_scan_has_run = False
+        st.session_state.hipaa_scan_findings = []
+        st.session_state.hipaa_scan_record_count = 0
+        st.session_state.hipaa_scan_timestamp = ""
+
+    if run_scan:
+        with st.spinner("Scanning CRM records for potential HIPAA-sensitive content..."):
+            records = STORE.records_for_hipaa_scan()
+            findings = HIPAA_SCANNER.scan_records(records)
+
+        st.session_state.hipaa_scan_has_run = True
+        st.session_state.hipaa_scan_findings = findings
+        st.session_state.hipaa_scan_record_count = len(records)
+        st.session_state.hipaa_scan_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        st.success(f"Scan complete. Found {len(findings)} potential issue(s).")
+
+    if not st.session_state.hipaa_scan_has_run:
+        st.info("Run AI Scan to analyze all records in Accounts, Opportunities, Engagements, Campaigns, and Finance objects.")
+        return
+
+    findings = st.session_state.hipaa_scan_findings
+    record_count = int(st.session_state.hipaa_scan_record_count)
+    scanned_at = st.session_state.hipaa_scan_timestamp
+
+    if scanned_at:
+        st.caption(f"Last scan: {scanned_at} | Records scanned: {record_count}")
+
+    high_count = sum(1 for row in findings if row["severity"] == "High")
+    medium_count = sum(1 for row in findings if row["severity"] == "Medium")
+    low_count = sum(1 for row in findings if row["severity"] == "Low")
+    unique_records = len({(row["table_name"], row["record_id"]) for row in findings})
+
+    metrics = st.columns(5)
+    with metrics[0]:
+        st.metric("Potential Flags", str(len(findings)))
+    with metrics[1]:
+        st.metric("High", str(high_count))
+    with metrics[2]:
+        st.metric("Medium", str(medium_count))
+    with metrics[3]:
+        st.metric("Low", str(low_count))
+    with metrics[4]:
+        st.metric("Records Impacted", str(unique_records))
+
+    if not findings:
+        st.success("No potential HIPAA-sensitive findings were detected in this scan.")
+        return
+
+    filters = st.columns([1.2, 1.5, 2], gap="small")
+    with filters[0]:
+        selected_severity = st.multiselect(
+            "Severity",
+            options=["High", "Medium", "Low"],
+            default=["High", "Medium", "Low"],
+            key="hipaa-severity-filter",
+        )
+    with filters[1]:
+        object_options = sorted({str(row["object_name"]) for row in findings})
+        selected_objects = st.multiselect(
+            "Object",
+            options=object_options,
+            default=object_options,
+            key="hipaa-object-filter",
+        )
+    with filters[2]:
+        keyword_filter = st.text_input(
+            "Keyword Filter",
+            placeholder="signal, field, context, or reason",
+            key="hipaa-keyword-filter",
+        ).strip().lower()
+
+    filtered_findings: list[dict] = []
+    for row in findings:
+        if selected_severity and row["severity"] not in selected_severity:
+            continue
+        if selected_objects and row["object_name"] not in selected_objects:
+            continue
+
+        if keyword_filter:
+            haystack = " ".join(
+                [
+                    str(row.get("signal") or ""),
+                    str(row.get("field_name") or ""),
+                    str(row.get("context") or ""),
+                    str(row.get("reason") or ""),
+                    str(row.get("object_name") or ""),
+                ]
+            ).lower()
+            if keyword_filter not in haystack:
+                continue
+
+        filtered_findings.append(row)
+
+    severity_order = {"High": 0, "Medium": 1, "Low": 2}
+    filtered_findings.sort(
+        key=lambda row: (
+            severity_order.get(str(row["severity"]), 99),
+            -int(row["confidence"]),
+            str(row["object_name"]),
+            int(row["record_id"]),
+        )
+    )
+
+    findings_df = pd.DataFrame(
+        [
+            {
+                "Severity": row["severity"],
+                "Object": row["object_name"],
+                "Record ID": row["record_id"],
+                "Field": row["field_name"],
+                "Signal": row["signal"],
+                "Confidence": row["confidence"],
+                "Matched Value": row["matched_text"],
+                "Context": row["context"],
+                "Why Flagged": row["reason"],
+            }
+            for row in filtered_findings
+        ]
+    )
+    _table_or_info(findings_df, "No findings match the selected filters.")
+
+    if not findings_df.empty:
+        csv_data = findings_df.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Download Findings CSV",
+            data=csv_data,
+            file_name="hipaa_sensitive_data_findings.csv",
+            mime="text/csv",
+            use_container_width=False,
+            key="hipaa-findings-download",
+        )
+
+
 def main() -> None:
     st.set_page_config(
         page_title="Harborlight Nonprofit Cloud",
@@ -1419,6 +1581,7 @@ def main() -> None:
             "Campaigns",
             "Gift Entry & Ledger",
             "Reconciliation",
+            "HIPAA Review",
         ]
     )
 
@@ -1436,6 +1599,8 @@ def main() -> None:
         render_ledger_tab()
     with tabs[6]:
         render_reconciliation_tab()
+    with tabs[7]:
+        render_hipaa_review_tab()
 
 
 if __name__ == "__main__":

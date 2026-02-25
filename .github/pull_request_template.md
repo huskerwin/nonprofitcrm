@@ -8,7 +8,7 @@
 
 ## Validation
 
-- [ ] `python -m compileall app.py chatbot tests`
+- [ ] `python -m compileall nonprofit_crm_app.py nonprofit_crm tests`
 - [ ] `python -m pytest -q`
 
 ## Checklist
