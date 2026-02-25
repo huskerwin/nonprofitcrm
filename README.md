@@ -3,7 +3,28 @@
 [![CI](https://github.com/huskerwin/opencodetesting/actions/workflows/ci.yml/badge.svg)](https://github.com/huskerwin/opencodetesting/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-This project is a Streamlit chatbot that lets users upload documents and ask questions about the content.
+This project includes two Streamlit apps:
+
+- A document chatbot for Q&A over uploaded files.
+- A nonprofit CRM for donor management, engagement tracking, and donation reconciliation.
+
+## Nonprofit CRM quick start
+
+Run the CRM app with:
+
+```bash
+streamlit run nonprofit_crm_app.py
+```
+
+Core CRM capabilities:
+
+- Salesforce Nonprofit Cloud-inspired layout and terminology
+- Accounts/Contacts records for individuals and organizations
+- Opportunity management with stage pipeline and probability tracking
+- Campaign management with rollup progress against campaign goals
+- Engagement plan task timeline and follow-up workflows
+- Gift Entry + Ledger linking for audit-ready donation accounting
+- Bank transaction matching and monthly reconciliation workflow
 
 ## Documentation
 
