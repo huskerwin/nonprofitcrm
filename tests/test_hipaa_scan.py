@@ -71,6 +71,23 @@ def test_scanner_ignores_normal_contact_data_without_medical_context() -> None:
     assert findings == []
 
 
+def test_scanner_flags_newly_supported_medical_vocabulary() -> None:
+    scanner = HipaaSensitivityScanner()
+    records = [
+        {
+            "object_name": "Engagement Plans",
+            "table_name": "engagements",
+            "record_id": 11,
+            "fields": {
+                "summary": "Care plan discussion for hypertension and atrial fibrillation.",
+            },
+        }
+    ]
+
+    findings = scanner.scan_records(records)
+    assert any(row["signal"] == "Medical Context" for row in findings)
+
+
 def test_store_records_for_hipaa_scan_includes_core_objects(tmp_path) -> None:  # type: ignore[no-untyped-def]
     store = _build_store(tmp_path)
 
