@@ -29,7 +29,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Validate syntax
-        run: python -m compileall app.py chatbot tests
+        run: python -m compileall nonprofit_crm_app.py nonprofit_crm tests
 
       - name: Run tests
         run: python -m pytest -q
