@@ -14,16 +14,16 @@ The app uses a retrieval-augmented generation (RAG) pattern:
 
 ```mermaid
 flowchart LR
-    U[User] --> UI[Streamlit UI\napp.py]
-    UI --> DOCS[Document parser/chunker\nchatbot/documents.py]
-    DOCS --> IDX[In-memory TF-IDF index\nchatbot/retrieval.py]
-    UI --> SEARCH[search(query)]
-    SEARCH --> IDX
-    SEARCH --> LLM[Answer generator\nchatbot/llm.py]
-    LLM --> OPENAI[OpenAI Chat Completions API\noptional]
-    LLM --> FALLBACK[Retrieval-only fallback\nno API key]
-    LLM --> UI
-    UI --> U
+    user["User"] --> ui["Streamlit UI<br/>app.py"]
+    ui --> docs["Document parser/chunker<br/>chatbot/documents.py"]
+    docs --> idx["In-memory TF-IDF index<br/>chatbot/retrieval.py"]
+    ui --> retrieve["Retrieve relevant chunks"]
+    retrieve --> idx
+    retrieve --> llm["Answer generator<br/>chatbot/llm.py"]
+    llm --> openai["OpenAI Chat Completions API<br/>optional"]
+    llm --> fallback["Retrieval-only fallback<br/>no API key"]
+    llm --> ui
+    ui --> user
 ```
 
 ## Upload and Indexing Sequence
@@ -96,27 +96,27 @@ sequenceDiagram
 ```mermaid
 classDiagram
     class DocumentChunk {
-      +str chunk_id
-      +str source_name
-      +str text
+      +chunk_id
+      +source_name
+      +text
     }
 
     class SearchResult {
-      +DocumentChunk chunk
-      +float score
+      +chunk
+      +score
     }
 
     class InMemoryTfidfIndex {
-      +chunks: list[DocumentChunk]
-      +search(query, top_k, min_score) list[SearchResult]
-      -_idf: dict[str, float]
-      -_vectors: list[dict[str, float]]
-      -_norms: list[float]
+      +chunks
+      +search(query, top_k, min_score)
+      -idf
+      -vectors
+      -norms
     }
 
-    SearchResult --> DocumentChunk
-    InMemoryTfidfIndex --> DocumentChunk
-    InMemoryTfidfIndex --> SearchResult
+    SearchResult --> DocumentChunk : contains
+    InMemoryTfidfIndex --> DocumentChunk : indexes
+    InMemoryTfidfIndex --> SearchResult : returns
 ```
 
 ## Retrieval Details
