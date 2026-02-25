@@ -341,10 +341,14 @@ _HIGH_RISK_NOTES_FIELDS = {
 
 
 def _severity_rank(severity: str) -> int:
+    """Map severity labels to numeric sort order."""
+
     return {"High": 3, "Medium": 2, "Low": 1}.get(severity, 0)
 
 
 def _mask_match_text(text: str) -> str:
+    """Mask raw values so findings can be reviewed without full disclosure."""
+
     clean = " ".join(text.split())
     if len(clean) <= 6:
         return "***"
@@ -352,6 +356,8 @@ def _mask_match_text(text: str) -> str:
 
 
 def _excerpt(text: str, start: int, end: int, window: int = 34) -> str:
+    """Return a short context snippet around a flagged token."""
+
     left = max(0, start - window)
     right = min(len(text), end + window)
     snippet = " ".join(text[left:right].split())
@@ -363,10 +369,14 @@ def _excerpt(text: str, start: int, end: int, window: int = 34) -> str:
 
 
 def _contains_medical_context(text_lower: str) -> list[str]:
+    """Return medical terms detected in normalized free text."""
+
     return [term for term, pattern in _MEDICAL_TERM_PATTERNS if pattern.search(text_lower)]
 
 
 def _identifier_hits(text: str) -> list[str]:
+    """Return personal-identifier categories found in text."""
+
     hits: list[str] = []
     if _EMAIL_PATTERN.search(text):
         hits.append("email")
@@ -381,6 +391,8 @@ class HipaaSensitivityScanner:
     """Scan records and return potential HIPAA-sensitive findings."""
 
     def scan_records(self, records: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Scan normalized CRM records and return ranked findings."""
+
         findings: list[dict[str, Any]] = []
 
         for record in records:
@@ -431,6 +443,8 @@ class HipaaSensitivityScanner:
         field_name: str,
         text: str,
     ) -> list[dict[str, Any]]:
+        """Evaluate one text field and emit matching sensitivity signals."""
+
         findings: list[dict[str, Any]] = []
         dedupe: set[tuple[str, str]] = set()
 
@@ -443,6 +457,8 @@ class HipaaSensitivityScanner:
             start: int,
             end: int,
         ) -> None:
+            """Append a finding while preventing duplicate signal/value entries."""
+
             dedupe_key = (signal, matched_text.lower())
             if dedupe_key in dedupe:
                 return

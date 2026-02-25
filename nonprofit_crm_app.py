@@ -57,6 +57,8 @@ HIPAA_SCANNER = HipaaSensitivityScanner()
 
 
 def _inject_styles() -> None:
+    """Inject shared CSS so the UI keeps a consistent branded look."""
+
     st.markdown(
         """
         <style>
@@ -234,6 +236,8 @@ def _inject_styles() -> None:
 
 
 def _render_metric_card(title: str, value: str, subtitle: str) -> None:
+    """Render a compact KPI card used across dashboard sections."""
+
     st.markdown(
         f"""
         <div class="metric-card">
@@ -247,6 +251,8 @@ def _render_metric_card(title: str, value: str, subtitle: str) -> None:
 
 
 def _hero() -> None:
+    """Render the CRM hero banner and object shortcuts."""
+
     st.markdown(
         """
         <div class="crm-hero">
@@ -271,10 +277,14 @@ def _hero() -> None:
 
 
 def _donor_option_label(row: dict) -> str:
+    """Format a donor row for selectbox labels."""
+
     return f"{donor_display_name(row)} (#{row['id']})"
 
 
 def _bank_account_option_label(row: dict) -> str:
+    """Format a bank account row for selectbox labels."""
+
     pieces = [row["name"]]
     if row["bank_name"]:
         pieces.append(str(row["bank_name"]))
@@ -284,21 +294,29 @@ def _bank_account_option_label(row: dict) -> str:
 
 
 def _ledger_option_label(row: dict) -> str:
+    """Format a ledger entry row for selectbox labels."""
+
     amount = format_currency(int(row["amount_cents"]))
     return f"#{row['id']} {row['posted_date']} {amount} - {row['description']}"
 
 
 def _campaign_option_label(row: dict) -> str:
+    """Format a campaign row for selectbox labels."""
+
     raised = format_currency(int(row.get("raised_cents") or 0))
     return f"{row['name']} (Raised {raised})"
 
 
 def _bank_tx_option_label(row: dict) -> str:
+    """Format a bank transaction row for selectbox labels."""
+
     amount = format_currency(int(row["amount_cents"]))
     return f"#{row['id']} {row['transaction_date']} {amount} - {row['description']}"
 
 
 def _table_or_info(frame: pd.DataFrame, empty_message: str) -> None:
+    """Show a dataframe when populated, otherwise show an info message."""
+
     if frame.empty:
         st.info(empty_message)
         return
@@ -306,10 +324,14 @@ def _table_or_info(frame: pd.DataFrame, empty_message: str) -> None:
 
 
 def _rows_to_dicts(rows: Iterable) -> list[dict]:
+    """Convert sqlite row objects into plain dictionaries."""
+
     return [dict(row) for row in rows]
 
 
 def _render_home_people_search() -> None:
+    """Render the Home tab people search drawer and results grid."""
+
     if "home_people_search_open" not in st.session_state:
         st.session_state.home_people_search_open = False
 
@@ -359,6 +381,8 @@ def _render_home_people_search() -> None:
 
 
 def render_dashboard() -> None:
+    """Render Home KPIs, pipeline charts, follow-ups, and exceptions."""
+
     _render_home_people_search()
 
     stats = STORE.dashboard_stats()
@@ -479,6 +503,8 @@ def render_dashboard() -> None:
 
 
 def render_donors_tab() -> None:
+    """Render the Accounts & Contacts workspace."""
+
     st.markdown("### Accounts & Contacts")
     st.markdown(
         "<p class='section-note'>Salesforce-style constituent records with related opportunities and engagement history.</p>",
@@ -621,6 +647,8 @@ def render_donors_tab() -> None:
 
 
 def render_engagements_tab() -> None:
+    """Render engagement task capture and list views."""
+
     st.markdown("### Engagement Plans")
     st.markdown(
         "<p class='section-note'>Track stewardship tasks, activity history, and follow-up commitments.</p>",
@@ -705,6 +733,8 @@ def render_engagements_tab() -> None:
 
 
 def render_donations_tab() -> None:
+    """Render opportunity creation, stage management, and list views."""
+
     st.markdown("### Opportunities")
     st.markdown(
         "<p class='section-note'>Gift Opportunity management inspired by Salesforce NPSP Opportunity records.</p>",
@@ -918,6 +948,8 @@ def render_donations_tab() -> None:
 
 
 def render_campaigns_tab() -> None:
+    """Render campaign management and influence rollup views."""
+
     st.markdown("### Campaigns")
     st.markdown(
         "<p class='section-note'>Build campaign hierarchy, track performance, and align opportunities to each initiative.</p>",
@@ -1023,6 +1055,8 @@ def render_campaigns_tab() -> None:
 
 
 def render_ledger_tab() -> None:
+    """Render ledger entry capture and monthly journal review."""
+
     st.markdown("### Gift Entry & Ledger")
     st.markdown(
         "<p class='section-note'>Gift Entry-style journal workspace for accounting sync and audit-ready posting.</p>",
@@ -1082,6 +1116,8 @@ def render_ledger_tab() -> None:
 
 
 def render_reconciliation_tab() -> None:
+    """Render bank operations and month-end reconciliation workflows."""
+
     st.markdown("### Reconciliation")
     st.markdown(
         "<p class='section-note'>Close the loop between opportunities, bank deposits, and accounting records each month.</p>",
@@ -1403,6 +1439,8 @@ def render_reconciliation_tab() -> None:
 
 
 def render_hipaa_review_tab() -> None:
+    """Render AI-assisted HIPAA-sensitive data scanning and review tools."""
+
     st.markdown("### HIPAA Sensitive Data Review")
     st.markdown(
         "<p class='section-note'>AI-assisted scan across all CRM objects to flag potential HIPAA-sensitive content for compliance review.</p>",
@@ -1563,6 +1601,8 @@ def render_hipaa_review_tab() -> None:
 
 
 def main() -> None:
+    """Initialize the app shell and render all major CRM tabs."""
+
     st.set_page_config(
         page_title="Harborlight Nonprofit Cloud",
         page_icon=":handshake:",

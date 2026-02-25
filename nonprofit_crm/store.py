@@ -12,6 +12,8 @@ from typing import Any
 
 
 def _clean(value: str | None) -> str | None:
+    """Trim a string and coerce blank values to None."""
+
     if value is None:
         return None
     stripped = value.strip()
@@ -19,18 +21,24 @@ def _clean(value: str | None) -> str | None:
 
 
 def _normalize_token(value: str | None) -> str:
+    """Normalize text for fuzzy matching by removing non-alphanumerics."""
+
     if value is None:
         return ""
     return re.sub(r"[^a-z0-9]", "", value.lower())
 
 
 def _normalize_digits(value: str | None) -> str:
+    """Normalize phone-like strings into digits only."""
+
     if value is None:
         return ""
     return re.sub(r"\D", "", value)
 
 
 def _build_alias_lookup() -> dict[str, set[str]]:
+    """Build a bi-directional alias map for common first-name variants."""
+
     groups = (
         ("alexander", "alex", "xander", "sasha"),
         ("andrew", "andy", "drew"),
@@ -72,6 +80,8 @@ _ALIAS_LOOKUP = _build_alias_lookup()
 
 
 def _name_aliases(value: str | None) -> set[str]:
+    """Return the normalized token and any known nickname variants."""
+
     token = _normalize_token(value)
     if not token:
         return set()
@@ -82,12 +92,16 @@ def _name_aliases(value: str | None) -> set[str]:
 
 
 def _similarity(left: str, right: str) -> float:
+    """Compute fuzzy similarity score between two normalized strings."""
+
     if not left or not right:
         return 0.0
     return SequenceMatcher(None, left, right).ratio()
 
 
 def _donor_search_score(row: sqlite3.Row, search_term: str) -> float:
+    """Score one donor row against a search term for ranked smart search."""
+
     query_norm = _normalize_token(search_term)
     if not query_norm:
         return 0.0
@@ -159,6 +173,8 @@ def _donor_search_score(row: sqlite3.Row, search_term: str) -> float:
 
 
 def _lastrowid(cursor: sqlite3.Cursor) -> int:
+    """Return cursor.lastrowid and fail fast when it is unavailable."""
+
     row_id = cursor.lastrowid
     if row_id is None:
         raise RuntimeError("Insert did not return a row id.")
@@ -166,18 +182,26 @@ def _lastrowid(cursor: sqlite3.Cursor) -> int:
 
 
 def cents_from_amount(amount: float) -> int:
+    """Convert a dollar amount into integer cents."""
+
     return int(round(amount * 100))
 
 
 def amount_from_cents(cents: int) -> float:
+    """Convert integer cents into a decimal dollar amount."""
+
     return cents / 100
 
 
 def format_currency(cents: int) -> str:
+    """Format integer cents as a USD-style currency string."""
+
     return f"${amount_from_cents(cents):,.2f}"
 
 
 def donor_display_name(row: sqlite3.Row | dict[str, Any]) -> str:
+    """Return the best display name for a donor or organization row."""
+
     donor_type = row["donor_type"]
     if donor_type == "Organization":
         organization_name = row["organization_name"]
@@ -191,11 +215,15 @@ def donor_display_name(row: sqlite3.Row | dict[str, Any]) -> str:
 
 @dataclass(frozen=True)
 class MonthRange:
+    """Represents inclusive first and last calendar dates for a month."""
+
     start: date
     end: date
 
 
 def month_bounds(anchor: date) -> MonthRange:
+    """Return month start/end dates that contain the anchor date."""
+
     first_day = anchor.replace(day=1)
     if first_day.month == 12:
         next_month = date(first_day.year + 1, 1, 1)
@@ -205,6 +233,8 @@ def month_bounds(anchor: date) -> MonthRange:
 
 
 def _month_shift(first_day_of_month: date, months_back: int) -> date:
+    """Shift a month-anchor date backward by N months."""
+
     year = first_day_of_month.year
     month = first_day_of_month.month - months_back
     while month <= 0:
@@ -214,6 +244,8 @@ def _month_shift(first_day_of_month: date, months_back: int) -> date:
 
 
 def _table_columns(connection: sqlite3.Connection, table_name: str) -> set[str]:
+    """Return existing column names for a SQLite table."""
+
     rows = connection.execute(f"PRAGMA table_info({table_name})").fetchall()
     return {str(row["name"]) for row in rows}
 
@@ -224,6 +256,8 @@ def _ensure_column(
     column_name: str,
     definition: str,
 ) -> None:
+    """Add a column when it does not already exist."""
+
     if column_name in _table_columns(connection, table_name):
         return
     connection.execute(
@@ -235,9 +269,13 @@ class CRMStore:
     """Persistence operations for donors, gifts, engagements, and reconciliation."""
 
     def __init__(self, db_path: str | Path) -> None:
+        """Initialize the store with a filesystem path to the SQLite DB."""
+
         self.db_path = Path(db_path)
 
     def _connect(self) -> sqlite3.Connection:
+        """Create a SQLite connection configured for row dict access."""
+
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.db_path)
         connection.row_factory = sqlite3.Row
@@ -245,6 +283,8 @@ class CRMStore:
         return connection
 
     def init_db(self) -> None:
+        """Create tables/indexes and apply lightweight schema migrations."""
+
         with self._connect() as connection:
             connection.executescript(
                 """
@@ -442,6 +482,8 @@ class CRMStore:
         preferred_channel: str | None,
         notes: str | None,
     ) -> int:
+        """Create an account/contact record and return its donor id."""
+
         clean_first = _clean(first_name)
         clean_last = _clean(last_name)
         clean_org = _clean(organization_name)
@@ -491,6 +533,8 @@ class CRMStore:
             return _lastrowid(cursor)
 
     def get_donor(self, donor_id: int) -> sqlite3.Row | None:
+        """Fetch one donor by primary key."""
+
         with self._connect() as connection:
             return connection.execute(
                 "SELECT * FROM donors WHERE id = ?",
@@ -502,6 +546,8 @@ class CRMStore:
         search_term: str = "",
         smart_search: bool = False,
     ) -> list[sqlite3.Row]:
+        """List donors with optional simple or scored smart search."""
+
         cleaned_search = search_term.strip()
 
         base_select = """
@@ -635,6 +681,8 @@ class CRMStore:
         parent_campaign_id: int | None,
         description: str | None,
     ) -> int:
+        """Create a campaign record and return its id."""
+
         clean_name = _clean(name)
         if not clean_name:
             raise ValueError("Campaign name is required.")
@@ -672,6 +720,8 @@ class CRMStore:
             return _lastrowid(cursor)
 
     def list_campaigns(self, active_only: bool = True) -> list[sqlite3.Row]:
+        """Return campaign rows with parent name and gift rollups."""
+
         where_sql = "WHERE c.active = 1" if active_only else ""
         query = f"""
             SELECT
@@ -690,6 +740,8 @@ class CRMStore:
             return connection.execute(query).fetchall()
 
     def opportunity_pipeline(self) -> list[sqlite3.Row]:
+        """Return opportunity counts and totals grouped by stage."""
+
         query = """
             SELECT
                 COALESCE(opportunity_stage, 'Closed Won') AS stage_name,
@@ -717,6 +769,8 @@ class CRMStore:
         stage_name: str,
         probability_percent: int | None = None,
     ) -> None:
+        """Update opportunity stage and optional probability for one gift."""
+
         clean_stage = _clean(stage_name)
         if not clean_stage:
             raise ValueError("Opportunity stage is required.")
@@ -754,6 +808,8 @@ class CRMStore:
         follow_up_date: date | None,
         owner: str | None,
     ) -> int:
+        """Create an engagement activity and return its id."""
+
         if not _clean(summary):
             raise ValueError("Engagement summary is required.")
 
@@ -790,6 +846,8 @@ class CRMStore:
         donor_id: int | None = None,
         limit: int = 200,
     ) -> list[sqlite3.Row]:
+        """List engagement rows, optionally filtered to one donor."""
+
         where_clauses: list[str] = []
         parameters: list[Any] = []
 
@@ -823,6 +881,8 @@ class CRMStore:
         account_last4: str | None,
         currency: str = "USD",
     ) -> int:
+        """Create a bank account record and return its id."""
+
         clean_name = _clean(name)
         if not clean_name:
             raise ValueError("Bank account name is required.")
@@ -843,6 +903,8 @@ class CRMStore:
             return _lastrowid(cursor)
 
     def list_bank_accounts(self, active_only: bool = True) -> list[sqlite3.Row]:
+        """List bank accounts sorted by name."""
+
         query = "SELECT * FROM bank_accounts"
         if active_only:
             query += " WHERE active = 1"
@@ -860,6 +922,8 @@ class CRMStore:
         reference_code: str | None,
         source: str = "Manual",
     ) -> int:
+        """Create a ledger entry row and return its id."""
+
         clean_account_code = _clean(account_code)
         clean_description = _clean(description)
         if not clean_account_code:
@@ -899,6 +963,8 @@ class CRMStore:
         month_start: date | None = None,
         month_end: date | None = None,
     ) -> list[sqlite3.Row]:
+        """List ledger entries with donation link counts and filters."""
+
         where_clauses: list[str] = []
         parameters: list[Any] = []
 
@@ -948,6 +1014,8 @@ class CRMStore:
         campaign_id: int | None = None,
         probability_percent: int = 100,
     ) -> int:
+        """Create an opportunity/donation record and return its id."""
+
         if amount_cents <= 0:
             raise ValueError("Donation amount must be greater than zero.")
 
@@ -1025,6 +1093,8 @@ class CRMStore:
         campaign_id: int | None = None,
         open_only: bool = False,
     ) -> list[sqlite3.Row]:
+        """List donation/opportunity rows with joins and optional filters."""
+
         where_clauses: list[str] = []
         parameters: list[Any] = []
 
@@ -1103,6 +1173,8 @@ class CRMStore:
         amount_cents: int,
         reference_code: str | None,
     ) -> int:
+        """Create a bank transaction record and return its id."""
+
         clean_description = _clean(description)
         if not clean_description:
             raise ValueError("Bank transaction description is required.")
@@ -1138,6 +1210,8 @@ class CRMStore:
         month_end: date | None = None,
         unmatched_only: bool = False,
     ) -> list[sqlite3.Row]:
+        """List bank transactions with optional account/date/match filters."""
+
         where_clauses: list[str] = []
         parameters: list[Any] = []
 
@@ -1175,6 +1249,8 @@ class CRMStore:
             return connection.execute(query, parameters).fetchall()
 
     def link_donation_to_ledger(self, donation_id: int, ledger_entry_id: int) -> None:
+        """Link one donation to a ledger entry."""
+
         with self._connect() as connection:
             connection.execute(
                 "UPDATE donations SET ledger_entry_id = ? WHERE id = ?",
@@ -1182,6 +1258,8 @@ class CRMStore:
             )
 
     def link_bank_transaction_to_ledger(self, bank_transaction_id: int, ledger_entry_id: int) -> None:
+        """Link one bank transaction to a ledger entry."""
+
         with self._connect() as connection:
             connection.execute(
                 "UPDATE bank_transactions SET ledger_entry_id = ? WHERE id = ?",
@@ -1193,6 +1271,8 @@ class CRMStore:
         donation_id: int,
         bank_transaction_id: int,
     ) -> None:
+        """Match a donation with one bank transaction and enforce consistency checks."""
+
         with self._connect() as connection:
             donation = connection.execute(
                 "SELECT id, amount_cents, bank_account_id, ledger_entry_id FROM donations WHERE id = ?",
@@ -1248,6 +1328,8 @@ class CRMStore:
         month_start: date,
         month_end: date,
     ) -> list[sqlite3.Row]:
+        """Return donations in range that have no linked bank transaction."""
+
         query = """
             SELECT
                 dn.*,
@@ -1281,6 +1363,8 @@ class CRMStore:
         month_start: date,
         month_end: date,
     ) -> list[sqlite3.Row]:
+        """Return donations in range that are not linked to ledger entries."""
+
         query = """
             SELECT
                 dn.*,
@@ -1310,6 +1394,8 @@ class CRMStore:
         month_start: date,
         month_end: date,
     ) -> list[sqlite3.Row]:
+        """Return bank transactions in range that are not matched to donations."""
+
         query = """
             SELECT *
             FROM bank_transactions
@@ -1333,6 +1419,8 @@ class CRMStore:
         month_start: date,
         month_end: date,
     ) -> int:
+        """Auto-match donations to bank transactions by reference and exact amount."""
+
         unmatched_donations = [
             row
             for row in self.donations_missing_bank_match(
@@ -1390,6 +1478,8 @@ class CRMStore:
         return matched_count
 
     def dashboard_stats(self, today: date | None = None) -> dict[str, int | float]:
+        """Compute Home tab KPI aggregates for fundraising and finance."""
+
         report_date = today or date.today()
         month = month_bounds(report_date)
         year_start = date(report_date.year, 1, 1)
@@ -1492,6 +1582,8 @@ class CRMStore:
         }
 
     def donations_by_month(self, months: int = 12, today: date | None = None) -> list[dict[str, Any]]:
+        """Return month-by-month donation totals for charting."""
+
         if months <= 0:
             return []
 
@@ -1526,6 +1618,8 @@ class CRMStore:
         today: date | None = None,
         limit: int = 25,
     ) -> list[sqlite3.Row]:
+        """Return engagement records with follow-ups due within a date window."""
+
         anchor = today or date.today()
         last_day = anchor + timedelta(days=days)
         with self._connect() as connection:
@@ -1554,6 +1648,8 @@ class CRMStore:
         month_start: date,
         month_end: date,
     ) -> dict[str, int | float]:
+        """Return month-end reconciliation totals, gaps, and completion metrics."""
+
         with self._connect() as connection:
             donations_total_row = connection.execute(
                 """
